@@ -1,1 +1,2 @@
-# ptrr-research
+# PTRR Research Report
+## Author: Minseok Ryu
