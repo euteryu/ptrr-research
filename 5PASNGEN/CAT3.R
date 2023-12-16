@@ -11,10 +11,11 @@
 ## Chronological overview of how data analysis has been conducted below:
 ## Task 1.  Define hypotheses and statistical model
 ## Task 2.  Set up workspace
-## Task 3.  ANOVA assumptions
-## Task 4.  Compute ANOVA
-## Task 5.  Interpret
-## Task 6.  Post-hoc test
+## Task 3.  Visualise plots
+## Task 4.  ANOVA assumptions
+## Task 5.  Compute ANOVA
+## Task 6.  Interpret
+## Task 7.  Planned Contrast
 
 ################################################################################
 
@@ -52,7 +53,7 @@ cat("We will perform 2x3 independent full factorial ANOVA.
 rm(list=ls())
 
 ## Load standard libraries
-packages = c("ggplot2", "dplyr", "lsr", "ggpubr", "tidyr", "tidyverse", "car", "lme4")
+packages = c("ggplot2", "dplyr", "lsr", "lsmeans", "ggpubr", "tidyr", "tidyverse", "car", "lme4")
 package.check <- lapply(
   packages,
   FUN = function(x) {
@@ -105,13 +106,11 @@ table(minichoices2$gender)
 table(minichoices2$ethni)
 age_mean <- mean(minichoices2$age)
 
-## Draw various plots to visually discern high-level indications of variance
-## between the two factors: 
-## Box plot with our two factor variables
-ggboxplot(minichoices2, x = "format", y = "proba_judg", color = "graf",
-          xlab = "Message Format",
-          ylab = "Perceived Chances Of Winning (%)",
-          palette = c("#00AFBB", "#E7B800"))
+################################################################################
+
+## Task 3  Draw various plots to visually discern high-level indications of
+## variance between the two factors:
+
 ## Line plot showing interaction of factors
 ggline(minichoices2, x = "format", y = "proba_judg", color = "graf",
        xlab = "Message Format",
@@ -119,26 +118,35 @@ ggline(minichoices2, x = "format", y = "proba_judg", color = "graf",
        add = c("mean_se", "dotplot"),
        palette = c("#00AFBB", "#E7B800"))
 
+## Violin plot and Box plot
+ggplot(minichoices2, aes(x=format, y=proba_judg, fill=graf)) + 
+  geom_violin(position = position_dodge(1), trim=FALSE) +
+  geom_boxplot(position = position_dodge(1), alpha = 0, width=0.09, fill="white") +
+  labs(title="Effect of message format and graphical aid on gamblers’ perception",
+       x="Message Format",
+       y = "Perceived Chances Of Winning") +
+  theme_classic()
+
 ################################################################################
 
-## Task 3.1  Compute full factorial 2x3 ANOVA
+## Task 4.1  Compute full factorial 2x3 ANOVA
 minichoices2.aov <- aov(proba_judg ~ format * graf, data = minichoices2)
 ## See Task 4 for detailed interpretation, post-assumption check below
 
-## Task 3.2  Effect size
+## Task 4.2  Effect size
 etaSquared(minichoices2.aov)
-cat("η2 for message format: 0.066  -->  Medium effect")
-cat("η2 for graphical aid : 0.059  -->  Small  effect")
-cat("η2 for interaction   : 0.000  -->  Null   effect")
+cat("η2 for message format:   0.066  -->  Medium effect")
+cat("η2 for graphical aid :   0.059  -->  Small  effect")
+cat("η2 for interaction   : < 0.001  -->  Null   effect")
 
 ################################################################################
 
-## Task 4.1  Check independence of observations
+## Task 5.1  Check independence of observations
 ## See study design for more detail.
 cat("There are different participants in each of the categorical, independent
     groups, with no participant being in more than one group.")
 
-## Task 4.2  Check the homogeneity of variance assumption
+## Task 5.2  Check the homogeneity of variance assumption
 plot(minichoices2.aov, 1)
 cat("There is no evident relationships between residuals and fitted values
     (mean of each groups), which suggests homogeneity of variances in the
@@ -148,7 +156,7 @@ cat("Levene's test indicated significance is greater than 0.05
     (F = 1.80, p = 0.12). Therefore there is no evidence to suggest that the
     variance across groups is statistically significantly different.")
 
-## Task 4.3  Check the normality assumption of residuals
+## Task 5.3  Check the normality assumption of residuals
 plot(minichoices2.aov, 2)
 cat("Q-Q plot suggests residuals are bimodally distributed. Typically, this is
     cause for concern as to the appropriateness of employing parametric tests.")
@@ -168,38 +176,38 @@ cat("Since we have a small sample size, determining the distribution of
 
 ################################################################################
 
-## Task 5  Interpret results
+## Task 6  Interpret results
 summary(minichoices2.aov)
 cat("I conducted a 2x3 between-subjects ANOVA to estimate the effect of Message
     Format and Graphical Aid Format on participants' Perceived Chances Of Winning
     in gambling. My two factors were: Message Format (alternative house edge, 
     original house edge, and return-to-player) and Graphical Aid Format (with or
     without).\n
-    I observed a main effect of Message Format F(2, 24) = 5.2, p = .006
-    and a main effect of Graphical Aid Format, F(1, 24) = 9.2, p = .002. There
+    I observed a main effect of Message Format F(2, 141) = 5.24, p = .006
+    and a main effect of Graphical Aid Format, F(1, 141) = 9.25, p = .002. There
     was no significant interaction between Message Format and Graphical Aid
     Format, F(2, 24) = 0.04, p = .960.")
 
 ################################################################################
 
-## Task 6  Post-hoc analysis
-## Using Tukey's test to assess significance of
-## differences between pairs of group means per main effect of factor identified
-## above.
-(tukey.test <- TukeyHSD(minichoices2.aov))
-## 95% FW confidence level for diff in message format mean lvls and graphical aid format lvls
-plot(tukey.test)
+## Task 7  Planned Contrasts
+## Using planned contrasts to assess significance of differences between pairs
+## of group means per significant main effects identified earlier above.
+model2 <- lm(proba_judg ~ format * graf, data = minichoices2)
+(cell_means <- lsmeans(model2, specs = c("format", "graf")))
+contrast_out <- contrast(cell_means,
+                         list(
+                           AltHouseEdge_vs_OGHouseEdge = c(0,0,0,-1,1,0),
+                           HouseEdge_vs_RTP = c(0,0,0,-1,-1,2),
+                           Graphical_vs_NoGraphical = c(1,1,1,-1,-1,-1)
+                         ))
+summary(contrast_out)
 
-cat("I conducted Tukey's post-hoc test that revealed the difference in means,
-    confidence levels and the adjusted p-values for all possible pairs.\n
-    The confidence levels and p-values showed the only significant between-group
-    difference in means is for return-to-player and alternative house edge
-    message formats, p = 0.004, such that participants given alternative house
-    edge formats averaged 22.083% lower in perceived chances of winning - as
-    partially predicted by Hypothesis H1b.\n
-    All other pairs contain 0 in the confidence intervals and thus, have no
-    significant difference. Therefore, no other null hypothesis can be rejected.
-    \n Curiously, this suggests that in spite of observing a main effect of
-    Graphical Aid Format, there is a chance of finding no difference between groups
-    with and without the aids. It might be that the available sample size is too
-    small to discern precisely which group means differ from each other.")
+cat("Planned contrasts revealed that both house edge formats significantly lead
+    to lower perceived chances of winning than the original house edge format,
+    t(138) = 2.12, p = .036, and adding a graphical aid to the message
+    significantly lead to lower perceived chances of winning, t(138) = 3.04,
+    p = .003.\n
+    But alternative house edge formats did not significantly lead to 
+    lower perceived chances of winning than the original house edge format, 
+    t(138) = 1.26, p = .210.")
