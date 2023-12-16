@@ -52,7 +52,7 @@ cat("We will perform 2x3 independent full factorial ANOVA.
 rm(list=ls())
 
 ## Load standard libraries
-packages = c("ggplot2", "dplyr", "ggpubr", "tidyr", "tidyverse", "car", "lme4")
+packages = c("ggplot2", "dplyr", "lsr", "ggpubr", "tidyr", "tidyverse", "car", "lme4")
 package.check <- lapply(
   packages,
   FUN = function(x) {
@@ -64,11 +64,12 @@ package.check <- lapply(
 )
 
 ## Change Directory to Data
-setwd("C:/Users/minse/Downloads/5PASNGEN_CW/")
+setwd("C:/Users/minse/Desktop/NPGroup/Psychology/Year2/5PASNGEN/5PASNGEN_CW")
 getwd()
 
 ## Load data
 choices <- read.csv("choices_xp_2324_clean_correct.csv", header = TRUE)
+
 ## Look at what we have
 choices$format <- as.factor(choices$format)
 choices$graf <- as.factor(choices$graf)
@@ -81,8 +82,8 @@ levels(choices$graf)
 ## - who failed to provide scores for their perceived chances of winning
 ##   (i.e remove "NA" values in "proba_judg" column of our data)
 minichoices1 <- choices[!(choices$gamb_freq %in% "more than once a week"),
-                       c("proba_judg", "format", "graf")
-                       ] %>% drop_na()
+                       c("proba_judg", "format", "graf", "age", "gender", "ethni")
+                       ] %>% drop_na("proba_judg", "format", "age")
 
 ## Check if cells are balanced by looking at counts in each cell for our two
 ## factors:
@@ -99,6 +100,10 @@ xtabs( ~ format + graf, data = minichoices2)
 cat("We now have 144 participants split into 6 survey groups,
     balancing the dataset at 24 cell entries each.")
 
+## Descriptive Statistics: gender, ethnicity, mean age
+table(minichoices2$gender)
+table(minichoices2$ethni)
+age_mean <- mean(minichoices2$age)
 
 ## Draw various plots to visually discern high-level indications of variance
 ## between the two factors: 
@@ -116,9 +121,15 @@ ggline(minichoices2, x = "format", y = "proba_judg", color = "graf",
 
 ################################################################################
 
-## Task 3  Compute full factorial 2x3 ANOVA
+## Task 3.1  Compute full factorial 2x3 ANOVA
 minichoices2.aov <- aov(proba_judg ~ format * graf, data = minichoices2)
 ## See Task 4 for detailed interpretation, post-assumption check below
+
+## Task 3.2  Effect size
+etaSquared(minichoices2.aov)
+cat("η2 for message format: 0.066  -->  Medium effect")
+cat("η2 for graphical aid : 0.059  -->  Small  effect")
+cat("η2 for interaction   : 0.000  -->  Null   effect")
 
 ################################################################################
 
@@ -137,7 +148,7 @@ cat("Levene's test indicated significance is greater than 0.05
     (F = 1.80, p = 0.12). Therefore there is no evidence to suggest that the
     variance across groups is statistically significantly different.")
 
-## Task 4.3  Check the normality assumption
+## Task 4.3  Check the normality assumption of residuals
 plot(minichoices2.aov, 2)
 cat("Q-Q plot suggests residuals are bimodally distributed. Typically, this is
     cause for concern as to the appropriateness of employing parametric tests.")
